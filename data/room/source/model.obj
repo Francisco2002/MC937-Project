@@ -1,0 +1,42 @@
+# Sala (cubo aberto com 5 faces): sem teto e sem parede frontal
+mtllib material.mtl
+
+# Vértices (8)
+v -1 -1 -1  # 1
+v  1 -1 -1  # 2
+v  1  1 -1  # 3
+v -1  1 -1  # 4
+v -1 -1  1  # 5
+v  1 -1  1  # 6
+v  1  1  1  # 7
+v -1  1  1  # 8
+
+# Coordenadas de textura
+vt 0.0 0.0
+vt 1.0 0.0
+vt 1.0 1.0
+vt 0.0 1.0
+
+# Normais (voltadas para dentro da sala)
+vn  0  0  1   # fundo (Z-)
+vn  1  0  0   # esquerda (X-)
+vn  -1  0  0   # direita (X+)
+vn  0 1  0   # piso (Y-)
+
+# Faces com v/t/n (sem teto, sem frente)
+
+# Fundo (traseira, Z-)
+usemtl fundo
+f 1/1/1 2/2/1 3/3/1 4/4/1
+
+# Lateral esquerda (X-)
+usemtl esquerda
+f 1/1/2 4/4/2 8/3/2 5/2/2
+
+# Lateral direita (X+)
+usemtl direita
+f 2/1/3 6/2/3 7/3/3 3/4/3
+
+# Piso (Y-)
+usemtl piso
+f 1/1/4 5/2/4 6/3/4 2/4/4

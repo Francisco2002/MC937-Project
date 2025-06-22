@@ -1,0 +1,66 @@
+# Blender 4.4.3 MTL File: 'None'
+# www.blender.org
+
+newmtl Black_Paint.001
+Ns 416.611542
+Ka 1.000000 1.000000 1.000000
+Kd 0.011849 0.012189 0.014577
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Bump -s 4 4 4 -bm 0,200000 ../textures/Grau-Körnung_Normal.jpg
+
+newmtl Handle_mat.001
+Ns 372.494995
+Ka 1.000000 1.000000 1.000000
+Kd 0.019542 0.019542 0.019542
+Ks 0.463636 0.463636 0.463636
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl Key_metal.001
+Ns 63.117920
+Ka 1.000000 1.000000 1.000000
+Kd 0.500000 0.500000 0.500000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 3
+
+newmtl Main_table.001
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd -s 3 3 3 ../textures/Wood023_2K_Color.png
+map_Ns -s 3 3 3 ../textures/Wood023_2K_Roughness.png
+map_Bump -s 3 3 3 -bm 1,000000 ../textures/Wood023_2K_NormalGL.png
+
+newmtl Paint_edge_mat.001
+Ka 1.000000 1.000000 1.000000
+Kd 0.500000 0.500000 0.500000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Ns -o 0.39 0 0 -s 5 5 5 ../textures/Wood023_2K_Roughness.png
+map_Bump -o 0.39 0 0 -s 5 5 5 -bm 1,000000 ../textures/Wood023_2K_NormalGL.png
+
+newmtl Paint_mat.001
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd -s 20 20 20 ../textures/Wood023_2K_Color.png
+map_Ns -s 20 20 20 ../textures/Wood023_2K_Roughness.png
+map_Bump -s 20 20 20 -bm 1,000000 ../textures/Wood023_2K_NormalGL.png

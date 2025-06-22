@@ -1,0 +1,33 @@
+# Blender 4.4.3 MTL File: 'None'
+# www.blender.org
+
+newmtl concrete
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd ../textures/ConcreteBare0280_39_S.jpg
+
+newmtl in_boiz
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.500000 0.500000 0.500000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl shade
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd ../textures/TexturesCom_FabricPlain0045_2_seamless_S.jpg
+map_Bump ../textures/TexturesCom_FabricPlain0045_2_seamless_S.jpg

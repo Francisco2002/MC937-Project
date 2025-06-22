@@ -1,0 +1,12 @@
+# Blender 4.4.3 MTL File: 'None'
+# www.blender.org
+
+newmtl BookA
+Ns 96.078415
+Ka 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd /home/francisco/Documentos/projeto_final_cg/data/book2/textures/BookA_BookA_Grey_BaseColor.png
+map_Ks /home/francisco/Documentos/projeto_final_cg/data/book2/textures/BookA_BookA_Grey_Roughness.png
