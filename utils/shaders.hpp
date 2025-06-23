@@ -43,7 +43,7 @@ class Shader {
 
         Shader(const char* vertexPath, const char* fragmentPath);
         
-        void use();
+        void use() const;
         void setBool(const std::string &name, bool value) const;
         void setInt(const std::string &name, int value) const;
         void setFloat(const std::string &name, float value) const;
@@ -57,7 +57,7 @@ class Shader {
         void setVec4(const std::string &name, float x, float y, float z, float w) const;
         void setMat2(const std::string &name, const glm::mat2 &mat) const;
         void setMat3(const std::string &name, const glm::mat3 &mat) const;
-        void setMat4(const std::string &name, float *value) const;
+        void setMat4(const std::string &name, const float *value) const;
 };      
 
 Shader::Shader(const char *vertexPath, const char *fragmentPath): initialized{false} {
@@ -117,7 +117,7 @@ Shader::Shader(const char *vertexPath, const char *fragmentPath): initialized{fa
     glDeleteShader(fragment);
 }
 
-void Shader::use() {
+void Shader::use() const {
     glUseProgram(ID);
 }
 
@@ -173,7 +173,7 @@ void Shader::setMat3(const std::string &name, const glm::mat3 &mat) const {
     glUniformMatrix3fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, &mat[0][0]);
 }
 
-void Shader::setMat4(const std::string &name, float *value) const {
+void Shader::setMat4(const std::string &name, const float *value) const {
     glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, value);
 }
 

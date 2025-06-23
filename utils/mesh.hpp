@@ -35,6 +35,11 @@ struct Material {
     std::string bumpTexturePath = "";
 };
 
+struct AABB {
+    glm::vec3 max_corner;
+    glm::vec3 min_corner;
+};
+
 // represent any drawable object
 struct Mesh {
     std::string name;
@@ -46,6 +51,8 @@ struct Mesh {
 
     GLuint VAO, VBO, EBO;
 
+    AABB boundingBox;
+
     Mesh(std::string n, const std::vector<Vertex> &v, const std::vector<GLuint> &i, const Material& m, const std::string& baseDir);
     Mesh(const std::vector<Vertex> &v, const std::vector<GLuint> &i, const Material& m, const std::string& baseDir);
 
@@ -53,7 +60,86 @@ struct Mesh {
     void setup_mesh();
     void load_texture(const char* path);
     void destroy_mesh() const;
+
+    void computeAABB();          // <-- Adicionado
+    void drawAABB(const Shader& s, const glm::mat4& model, const glm::mat4& view, const glm::mat4& projection) const;
 };
+
+void Mesh::computeAABB() {
+    if (vertices.empty()) return;
+
+    glm::vec3 min = vertices[0].position;
+    glm::vec3 max = vertices[0].position;
+
+    for (const auto& vertex : vertices) {
+        min = glm::min(min, vertex.position);
+        max = glm::max(max, vertex.position);
+    }
+
+    boundingBox.min_corner = min;
+    boundingBox.max_corner = max;
+}
+
+void Mesh::drawAABB(const Shader& s, const glm::mat4& model, const glm::mat4& view, const glm::mat4& projection) const {
+    // Canto mínimo e máximo da AABB no espaço do objeto
+    const glm::vec3& min = boundingBox.min_corner;
+    const glm::vec3& max = boundingBox.max_corner;
+
+    // 8 vértices do cubo AABB
+    glm::vec3 corners[8] = {
+        {min.x, min.y, min.z}, // 0
+        {max.x, min.y, min.z}, // 1
+        {max.x, max.y, min.z}, // 2
+        {min.x, max.y, min.z}, // 3
+        {min.x, min.y, max.z}, // 4
+        {max.x, min.y, max.z}, // 5
+        {max.x, max.y, max.z}, // 6
+        {min.x, max.y, max.z}  // 7
+    };
+
+    // 12 arestas (pares de índices)
+    GLuint indices[] = {
+        0,1, 1,2, 2,3, 3,0, // base inferior
+        4,5, 5,6, 6,7, 7,4, // base superior
+        0,4, 1,5, 2,6, 3,7  // colunas verticais
+    };
+
+    // Criar buffers temporários
+    GLuint vao, vbo, ebo;
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &vbo);
+    glGenBuffers(1, &ebo);
+
+    glBindVertexArray(vao);
+
+    // VBO
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(corners), corners, GL_STATIC_DRAW);
+
+    // Posição (location 0)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    // EBO
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    // Configurar shader
+    s.use();
+    s.setMat4("model", glm::value_ptr(model));  // você precisa passar uma matriz modelo
+    s.setMat4("view", glm::value_ptr(view));  // você precisa passar uma matriz modelo
+    s.setMat4("projection", glm::value_ptr(projection));  // você precisa passar uma matriz modelo
+
+    s.setVec3("color", glm::vec3(1.0f, 0.0f, 0.0f)); // vermelho (ou qualquer cor)
+
+    glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
+
+    // Limpar buffers temporários
+    glBindVertexArray(0);
+    glDeleteBuffers(1, &vbo);
+    glDeleteBuffers(1, &ebo);
+    glDeleteVertexArrays(1, &vao);
+}
 
 Mesh::Mesh(std::string n, const std::vector<Vertex> &v, const std::vector<GLuint> &i, const Material& m, const std::string& baseDir): Mesh(v, i, m, baseDir) {
     name = n;
@@ -85,6 +171,7 @@ Mesh::Mesh(const std::vector<Vertex> &v, const std::vector<GLuint> &i, const Mat
     }
     
     setup_mesh();
+    computeAABB();
 }
 
 void Mesh::draw(const Shader &s) const {
