@@ -63,15 +63,12 @@ int main(int argc, char* argv[]) {
     glEnable(GL_DEPTH_TEST);
 
     Light ambient;
-    ambient.position = glm::vec3(0.0f, 50.0f, 0.0f);
+    ambient.position = glm::vec3(0.0f, 30.0f, 0.0f);
     ambient.color = glm::vec3(1.0f); 
 
     vector<Model> models;
     string vertexPath = "shaders/vertex.shader";
     string fragmentPath = "shaders/fragment.shader";
-
-    Model lightModel("data/light/model.obj", vertexPath.c_str(), "shaders/fragment_light.shader");
-    lightModel.translate(ambient.position);
 
     Model scenario("data/room/source/model.obj", vertexPath.c_str(), fragmentPath.c_str());
     Model m1("data/table/source/model.obj", vertexPath.c_str(), fragmentPath.c_str());
@@ -79,7 +76,8 @@ int main(int argc, char* argv[]) {
     Model m3("data/book2/source/model.obj", vertexPath.c_str(), fragmentPath.c_str());
     Model m4("data/book1/source/model.obj", vertexPath.c_str(), fragmentPath.c_str());
     Model m5("data/bed/source/model.obj", vertexPath.c_str(), fragmentPath.c_str());
-    Model m6("data/nightstand/source/Untitled.obj", vertexPath.c_str(), fragmentPath.c_str());
+    Model m6("data/nightstand/source/model.obj", vertexPath.c_str(), fragmentPath.c_str());
+    Model m7("data/bulb/source/model.obj", vertexPath.c_str(), fragmentPath.c_str());
 
     /* for(int i = 0; i < m1.meshes[0].vertices.size(); i++) {
         Vertex v = m1.meshes[0].vertices[i];
@@ -110,12 +108,16 @@ int main(int argc, char* argv[]) {
 
     // ------------------ CAMA ------------------
     m5.translate(glm::vec3(32.0f, -40.0f, -20.0f));
-    m5.scale(glm::vec3(30.0f, 30.0f, 18.0f));
+    m5.scale(glm::vec3(30.0f, 32.0f, 18.0f));
 
     // ------------------ CRIADO MUDO ------------------
     m6.translate(glm::vec3(-40.0f, -40.0f, 30.0f));
     m6.rotate(90.0f, glm::vec3(0.0f, 1.0f, 0.0f));
     m6.scale(glm::vec3(10.0f));
+
+    // ------------------ LÂMPADA ------------------
+    m7.translate(glm::vec3(0.0f, 40.0f, 0.0f));
+    m7.scale(glm::vec3(10.0f));
 
     models.push_back(m1);
     models.push_back(m2);
@@ -123,6 +125,7 @@ int main(int argc, char* argv[]) {
     models.push_back(m4);
     models.push_back(m5);
     models.push_back(m6);
+    models.push_back(m7);
 
     glm::mat4 view;
 
@@ -152,7 +155,6 @@ int main(int argc, char* argv[]) {
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        lightModel.draw(view, projection, ambient.position, ambient.color);
         scenario.draw(view, projection, ambient.position, ambient.color);
 
         for (Model& model : models) {

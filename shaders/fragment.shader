@@ -35,7 +35,7 @@ out vec4 fragColor;
 
 void main()
 {
-    float strenght = 0.5;
+    float strenght = 0.8;
     vec3 ambient = material.ambient * lightColor * strenght;
     
     vec3 normal = normalize(FragNormal);
@@ -61,7 +61,7 @@ void main()
     vec3 reflectDir = reflect(-lightDir, normal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
     
-    float specularStrength = 1.0;
+    float specularStrength = 0.7;
     if (material.hasSpecularTexture == 1) {
         specularStrength = texture(material.specularTexture, TexCoord).r;
     }

@@ -1,5 +1,5 @@
 # sala.mtl
-# Materiais básicos para as 4 faces da sala
+# Materiais básicos para as 5 faces da sala (agora com teto)
 
 newmtl fundo
 Ka 1.0 1.0 1.0
@@ -40,3 +40,13 @@ illum 2
 map_Kd ../textures/floor/diffuse.jpg
 map_Ks ../textures/floor/rough.png
 map_Bump ../textures/floor/nor.png
+
+newmtl teto
+Ka 1.0 1.0 1.0
+Kd 1.0 1.0 1.0
+Ks 1.0 1.0 1.0
+Ns 10.0
+illum 2
+map_Kd ../textures/ceiling/diffuse.jpg
+map_Ks ../textures/ceiling/rough.png
+map_Bump ../textures/ceiling/nor.png
