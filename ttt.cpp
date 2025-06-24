@@ -180,10 +180,26 @@ int main(int argc, char* argv[]) {
 
         AABB s = scenario.getGlobalAABB();
 
+        float yChao = -40.0f;
+
         for (int i = 0; i < models.size(); i++) {
             Model& model = models[i];
+            Object& obj = model.object;
+
+            if (obj.mass > 0.0f) {
+                glm::vec3 acceleration = gravity;
+
+                obj.velocity += acceleration * deltaTime;
+                obj.displacedPosition += obj.velocity * deltaTime;
+
+                if (obj.displacedPosition.y < yChao) {
+                    obj.displacedPosition.y = yChao;
+                    obj.velocity.y = 0.0f;
+                }
+            }
+
             model.clearEffect();
-            model.effect = modelSala;
+            model.applyEffect(TRANSLATE, obj.displacedPosition);
 
             model.draw(view, projection, ambient.position, ambient.color, camera.Position, true);
         }
