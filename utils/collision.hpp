@@ -16,25 +16,25 @@ void print_corners(AABB& mbox) {
 
 glm::vec3 translate_to_inside_room(AABB& room, AABB &model) {
     glm::vec3 offset(0.0f);
-    GLfloat margin = 0.3f;
+    const float margin = 0.3f;
 
     // Eixo X
-    if (model.min_corner.x < room.min_corner.x)
-        offset.x += room.min_corner.x - model.min_corner.x + margin;
-    else if (model.max_corner.x > room.max_corner.x)
-        offset.x -= model.max_corner.x - room.max_corner.x + margin;
+    if (model.min_corner.x < room.min_corner.x + margin)
+        offset.x += (room.min_corner.x + margin) - model.min_corner.x;
+    else if (model.max_corner.x > room.max_corner.x - margin)
+        offset.x -= model.max_corner.x - (room.max_corner.x - margin);
 
     // Eixo Y
-    if (model.min_corner.y < room.min_corner.y)
-        offset.y += room.min_corner.y - model.min_corner.y + margin;
-    else if (model.max_corner.y > room.max_corner.y)
-        offset.y -= model.max_corner.y - room.max_corner.y + margin;
+    if (model.min_corner.y < room.min_corner.y + margin)
+        offset.y += (room.min_corner.y + margin) - model.min_corner.y;
+    else if (model.max_corner.y > room.max_corner.y - margin)
+        offset.y -= model.max_corner.y - (room.max_corner.y - margin);
 
     // Eixo Z
-    if (model.min_corner.z < room.min_corner.z)
-        offset.z += room.min_corner.z - model.min_corner.z + margin;
-    else if (model.max_corner.z > room.max_corner.z)
-        offset.z -= model.max_corner.z - room.max_corner.z + margin;
+    if (model.min_corner.z < room.min_corner.z + margin)
+        offset.z += (room.min_corner.z + margin) - model.min_corner.z;
+    else if (model.max_corner.z > room.max_corner.z - margin)
+        offset.z -= model.max_corner.z - (room.max_corner.z - margin);
 
     return offset;
 }
@@ -88,4 +88,35 @@ bool checkModelCollision(const Model& m1, const Model& m2) {
         }
     }
     return false;
+}
+
+glm::vec3 getMinimumTranslationVector(const AABB& a, const AABB& b) {
+    glm::vec3 mtv(0.0f);
+
+    float dx1 = b.max_corner.x - a.min_corner.x;
+    float dx2 = a.max_corner.x - b.min_corner.x;
+    float dx = (dx1 < dx2) ? dx1 : -dx2;
+
+    float dy1 = b.max_corner.y - a.min_corner.y;
+    float dy2 = a.max_corner.y - b.min_corner.y;
+    float dy = (dy1 < dy2) ? dy1 : -dy2;
+
+    float dz1 = b.max_corner.z - a.min_corner.z;
+    float dz2 = a.max_corner.z - b.min_corner.z;
+    float dz = (dz1 < dz2) ? dz1 : -dz2;
+
+    // Pega o menor eixo de separação
+    float minOverlap = std::abs(dx);
+    mtv = glm::vec3(dx, 0.0f, 0.0f);
+
+    if (std::abs(dy) < minOverlap) {
+        minOverlap = std::abs(dy);
+        mtv = glm::vec3(0.0f, dy, 0.0f);
+    }
+
+    if (std::abs(dz) < minOverlap) {
+        mtv = glm::vec3(0.0f, 0.0f, dz);
+    }
+
+    return mtv;
 }

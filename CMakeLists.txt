@@ -10,7 +10,7 @@ find_package(glfw3 3.3 REQUIRED)
 find_package(GLEW REQUIRED)
 
 
-add_executable(ProjetoFinal main.cpp)
+add_executable(ProjetoFinal ttt.cpp)
 
 
 INCLUDE_DIRECTORIES( ${OPENGL_INCLUDE_DIR} ${GLFW_INCLUDE_DIRS} )

@@ -23,13 +23,18 @@ struct Light {
 };
 
 struct Object {
-    glm::vec3 position;
-    glm::vec3 velocity;
+    glm::vec3 position = glm::vec3(0.0f);
+        glm::vec3 displacedPosition = glm::vec3(0.0f);// posição suavizada com inércia
+    glm::vec3 velocity = glm::vec3(0.0f);
+    glm::vec3 size = glm::vec3(0.0f);
+    GLfloat mass = 0; 
 
-    Object(glm::vec3 p);
+    void incrementVelocity(glm::vec3 v);
 };
 
-Object::Object(glm::vec3 p):  position(p), velocity(glm::vec3(0.0f)) {}
+void Object::incrementVelocity(glm::vec3 v = glm::vec3(0.01f)) {
+    velocity += v;
+}
 
 struct Transforms {
     glm::mat4 translate = glm::mat4(1.0f);
@@ -46,11 +51,7 @@ struct Transforms {
 };
 
 struct Model {
-    glm::vec3 position;
-    glm::vec3 size;
-    glm::vec3 velocity;
-    AABB localAABB;
-    
+    Object object;
     Shader shader;
     std::vector<Mesh> meshes;
     
@@ -59,11 +60,15 @@ struct Model {
     // non-cumulative effect matrix
     glm::mat4 effect;
     
+    // cumulative transforms
     Transforms transforms;
     
     bool valid = false;
     
     Model(std::string model_file, const char* vertexPath, const char* fragmentPath);
+
+    void setModelMass(GLfloat mass);
+
     void translate(glm::vec3 translate_vector);
     void scale(glm::vec3 scale_vector);
     void rotate(GLfloat angle, glm::vec3 rotate_vector);
@@ -84,6 +89,10 @@ struct Model {
     AABB getGlobalAABB();
     void destroy();
 };
+
+void Model::setModelMass(GLfloat mass) {
+    object.mass = mass;
+}
 
 void Model::applyEffect(TransformType type, glm::vec3 t, GLfloat a = 0.0f) {
     if (type == SCALE) {
@@ -133,8 +142,8 @@ AABB Model::getGlobalAABB() {
     aabb.min_corner = globalMin;
     aabb.max_corner = globalMax;
 
-    position = (globalMax + globalMin) * 0.5f;
-    size = globalMax - globalMin;
+    object.position = (globalMax + globalMin) * 0.5f;
+    object.size = globalMax - globalMin;
 
     return aabb;
 }
@@ -147,15 +156,8 @@ Model::Model(std::string model_file, const char* vertexPath, const char* fragmen
         effect = glm::mat4(1.0f);
         valid = true;
 
-        glm::vec3 min(FLT_MAX), max(-FLT_MAX);
-
-        for (const Mesh& mesh : meshes) {
-            min = glm::min(min, mesh.boundingBox.min_corner);
-            max = glm::max(max, mesh.boundingBox.max_corner);
-        }
-
-        localAABB.min_corner = min;
-        localAABB.max_corner = max;
+        getGlobalAABB();
+        object.displacedPosition = object.position;
     }
 };
 
