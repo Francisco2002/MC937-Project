@@ -8,10 +8,11 @@
 #include <vector>
 #include "utils/model.hpp"
 #include "utils/camera.hpp"
+#include "utils/collision.hpp"
 
 #define PI glm::pi<float>()
-#define AMPLITUDE 0.3f
-#define FREQUENCY 10
+#define AMPLITUDE 6.0f
+#define FREQUENCY 25.0f
 #define RANDOM 1
 #define PHASE 1
 
@@ -49,17 +50,10 @@ glm::vec3 cameraQuake(GLfloat time) {
 
 glm::vec3 modelQuake(GLfloat time) {
     GLfloat xoffset = AMPLITUDE * glm::sin(FREQUENCY * time);
-    // GLfloat yoffset = AMPLITUDE * glm::sin(FREQUENCY * time * 1.1f + 0.3f);
+    GLfloat yoffset = AMPLITUDE * glm::sin(FREQUENCY * time * 1.1f + 0.3f);
     GLfloat zoffset = AMPLITUDE * glm::cos(FREQUENCY * time * 1.3f);
 
-    return {xoffset, 0.0f, zoffset};
-}
-
-glm::vec3 scenarioQuake(GLfloat time) {
-    float horizontalDisplacement = 2 * glm::sin(2 * PI * 2 * time);
-    float verticalDisplacement = 3 * glm::sin(2 * PI * 5 * time + 2.5);
-
-    return glm::vec3(horizontalDisplacement, verticalDisplacement, 0.0f);
+    return {xoffset, yoffset, 0.0f};
 }
 
 int main(int argc, char* argv[]) {
@@ -122,35 +116,51 @@ int main(int argc, char* argv[]) {
     scenario.scale(glm::vec3(50.0f));
     AABB scene = scenario.getGlobalAABB();
 
+    AABB m;
+    
     // ------------------ MESA ------------------
     m1.translate(glm::vec3(-30.0f, -40.0f, -35.0f));
+    m = m1.getGlobalAABB();
+    m1.translate(translate_to_inside_room(scene, m));
     m1.scale(glm::vec3(20.0f));
 
     // ------------------ ABAJUR ------------------
     m2.translate(glm::vec3(-38.0f, -23.0f, -35.0f));
+    m = m2.getGlobalAABB();
+    m2.translate(translate_to_inside_room(scene, m));
     m2.scale(glm::vec3(7.0f));
 
     // ------------------ LIVRO 1 ------------------
     m3.translate(glm::vec3(-20.0f, -27.5f, -34.0f));
+    m = m3.getGlobalAABB();
+    m3.translate(translate_to_inside_room(scene, m));
     m3.rotate(90.0f, glm::vec3(1.0f, 0.0f, 0.0));
     m3.scale(glm::vec3(5.0f));
 
     // ------------------ LIVRO 2 (empilhado) ------------------
     m4.translate(glm::vec3(-20.0f, -25.0f, -30.0f));
+    m = m4.getGlobalAABB();
+    m4.translate(translate_to_inside_room(scene, m));
     m4.rotate(30.0f, glm::vec3(0.0f, 1.0f, 0.0));
     m4.scale(glm::vec3(5.0f));
 
     // ------------------ CAMA ------------------
     m5.translate(glm::vec3(32.0f, -35.0f, -20.0f));
+    m = m5.getGlobalAABB();
+    m5.translate(translate_to_inside_room(scene, m));
     m5.scale(glm::vec3(30.0f, 32.0f, 18.0f));
 
     // ------------------ CRIADO MUDO ------------------
     m6.translate(glm::vec3(-38.0f, -40.0f, 30.0f));
+    m = m6.getGlobalAABB();
+    m6.translate(translate_to_inside_room(scene, m));
     m6.rotate(90.0f, glm::vec3(0.0f, 1.0f, 0.0f));
     m6.scale(glm::vec3(10.0f));
 
     // ------------------ LÂMPADA ------------------
-    m7.translate(glm::vec3(0.0f, 35.0f, 0.0f));
+    m7.translate(glm::vec3(0.0f, 38.0f, 0.0f));
+    m = m7.getGlobalAABB();
+    m7.translate(translate_to_inside_room(scene, m));
     m7.scale(glm::vec3(10.0f));
 
     models.push_back(m1);
@@ -171,7 +181,7 @@ int main(int argc, char* argv[]) {
     );
 
     while (!glfwWindowShouldClose(window))  {
-        float currentFrame = static_cast<float>(glfwGetTime());
+        GLfloat currentFrame = static_cast<GLfloat>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
@@ -182,17 +192,25 @@ int main(int argc, char* argv[]) {
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        glm::vec3 displacement = scenarioQuake(deltaTime);
+        glm::vec3 displacement = modelQuake(currentFrame);
 
-        scenario.translate(displacement, false);
+        scenario.clearEffect();
+        scenario.applyEffect(TRANSLATE, displacement);
+
         scenario.draw(view, projection, ambient.position, ambient.color, camera.Position);
 
         AABB s = scenario.getGlobalAABB();
-        glm::vec3 roomMin = s.min_corner;
-        glm::vec3 roomMax = s.max_corner;
         
         for (Model& model : models) {
-            model.translate(displacement, false);
+            AABB m_i = model.getGlobalAABB();
+
+            if(!is_inside(m_i, s)) {
+                glm::vec3 correction = translate_to_inside_room(s, m_i);
+
+                if (glm::length(correction) > 0.0f) {
+                    model.translate(correction);
+                }
+            }
 
             model.draw(view, projection, ambient.position, ambient.color, camera.Position, true);
         }

@@ -14,39 +14,38 @@ void print_corners(AABB& mbox) {
     std::cout << "==============\n";
 }
 
-glm::vec3 collideWithRoom(Model& room, Model& model) {
-    AABB roomAABB = room.getGlobalAABB();
-    AABB modelAABB = model.getGlobalAABB();
+glm::vec3 translate_to_inside_room(AABB& room, AABB &model) {
+    glm::vec3 offset(0.0f);
+    GLfloat margin = 0.3f;
 
-    print_corners(roomAABB);
-    print_corners(modelAABB);
+    // Eixo X
+    if (model.min_corner.x < room.min_corner.x)
+        offset.x += room.min_corner.x - model.min_corner.x + margin;
+    else if (model.max_corner.x > room.max_corner.x)
+        offset.x -= model.max_corner.x - room.max_corner.x + margin;
 
-    glm::vec3 correction(0.0f);
+    // Eixo Y
+    if (model.min_corner.y < room.min_corner.y)
+        offset.y += room.min_corner.y - model.min_corner.y + margin;
+    else if (model.max_corner.y > room.max_corner.y)
+        offset.y -= model.max_corner.y - room.max_corner.y + margin;
 
-    // Checa cada eixo e calcula a correção necessária para não sair da sala
-    if (modelAABB.min_corner.x < roomAABB.min_corner.x) {
-        correction.x = roomAABB.min_corner.x - modelAABB.min_corner.x;
-    } else if (modelAABB.max_corner.x > roomAABB.max_corner.x) {
-        correction.x = roomAABB.max_corner.x - modelAABB.max_corner.x;
-    }
+    // Eixo Z
+    if (model.min_corner.z < room.min_corner.z)
+        offset.z += room.min_corner.z - model.min_corner.z + margin;
+    else if (model.max_corner.z > room.max_corner.z)
+        offset.z -= model.max_corner.z - room.max_corner.z + margin;
 
-    if (modelAABB.min_corner.y < roomAABB.min_corner.y) {
-        correction.y = roomAABB.min_corner.y - modelAABB.min_corner.y;
-    } else if (modelAABB.max_corner.y > roomAABB.max_corner.y) {
-        correction.y = roomAABB.max_corner.y - modelAABB.max_corner.y;
-    }
-
-    if (modelAABB.min_corner.z < roomAABB.min_corner.z) {
-        correction.z = roomAABB.min_corner.z - modelAABB.min_corner.z;
-    } else if (modelAABB.max_corner.z > roomAABB.max_corner.z) {
-        correction.z = roomAABB.max_corner.z - modelAABB.max_corner.z;
-    }
-
-    return correction;
+    return offset;
 }
 
+bool is_inside(AABB& m, AABB& s) {
+    return (m.min_corner.x >= s.min_corner.x && m.max_corner.x <= s.max_corner.x) &&
+           (m.min_corner.y >= s.min_corner.y && m.max_corner.y <= s.max_corner.y) &&
+           (m.min_corner.z >= s.min_corner.z && m.max_corner.z <= s.max_corner.z);
+}
 
-/* AABB getTransformedAABB(const Mesh& mesh, const glm::mat4& modelMatrix) {
+AABB getTransformedAABB(const Mesh& mesh, const glm::mat4& modelMatrix) {
     const glm::vec3& min = mesh.boundingBox.min_corner;
     const glm::vec3& max = mesh.boundingBox.max_corner;
 
@@ -89,4 +88,4 @@ bool checkModelCollision(const Model& m1, const Model& m2) {
         }
     }
     return false;
-} */
+}

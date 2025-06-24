@@ -12,8 +12,11 @@
 #include "mesh.hpp"
 #include "read_obj_file.hpp"
 
-#define BASE 1
-#define DYNAMIC 2
+enum TransformType {
+    SCALE,
+    TRANSLATE,
+    ROTATE
+};
 struct Light {
     glm::vec3 position;
     glm::vec3 color;
@@ -28,29 +31,46 @@ struct Object {
 
 Object::Object(glm::vec3 p):  position(p), velocity(glm::vec3(0.0f)) {}
 
+struct Transforms {
+    glm::mat4 translate = glm::mat4(1.0f);
+    glm::mat4 rotate = glm::mat4(1.0f);
+    glm::mat4 scale = glm::mat4(1.0f);
+
+    void addTranslate(const glm::mat4& m) { translate = translate * m; }
+    void addRotate(const glm::mat4& m) { rotate = rotate * m; }
+    void addScale(const glm::mat4& m) { scale = scale * m; }
+
+    glm::mat4 getModelMatrix() const {
+        return translate * rotate * scale;
+    }
+};
+
 struct Model {
     glm::vec3 position;
     glm::vec3 size;
     glm::vec3 velocity;
-
     AABB localAABB;
-
-    float factor;
     
     Shader shader;
     std::vector<Mesh> meshes;
-    glm::mat4 baseModel;
+    
     glm::mat4 model;
+
+    // non-cumulative effect matrix
+    glm::mat4 effect;
+    
+    Transforms transforms;
     
     bool valid = false;
     
     Model(std::string model_file, const char* vertexPath, const char* fragmentPath);
-    void set_identity();
-    void translate(glm::vec3 translate_vector, bool accumulate);
+    void translate(glm::vec3 translate_vector);
     void scale(glm::vec3 scale_vector);
-    void rotate(GLfloat angle, glm::vec3 rotate_vector, bool accumulate);
+    void rotate(GLfloat angle, glm::vec3 rotate_vector);
 
-    void quakeTranslate(glm::vec3 offset);
+    void applyEffect(TransformType type, glm::vec3 t, GLfloat a);
+    void clearEffect();
+    void updateModelMatrix();
 
     void draw(
         glm::mat4 &view,
@@ -62,9 +82,22 @@ struct Model {
     );
 
     AABB getGlobalAABB();
-    void reverse();
     void destroy();
 };
+
+void Model::applyEffect(TransformType type, glm::vec3 t, GLfloat a = 0.0f) {
+    if (type == SCALE) {
+        effect = glm::scale(effect, t);
+    } else if (type == TRANSLATE) {
+        effect = glm::translate(effect, t);
+    } else {
+        effect = glm::rotate(effect, glm::radians(a), t);
+    }
+}
+
+void Model::clearEffect() {
+    effect = glm::mat4(1.0f);
+}
 
 AABB Model::getGlobalAABB() {
     if (meshes.empty()) return AABB{glm::vec3(0.0f), glm::vec3(0.0f)};
@@ -89,7 +122,7 @@ AABB Model::getGlobalAABB() {
 
         // Transformar cantos pela matriz model
         for (const glm::vec3& corner : corners) {
-            glm::vec3 transformed = glm::vec3(model * glm::vec4(corner, 1.0f));
+            glm::vec3 transformed = glm::vec3(effect * model * glm::vec4(corner, 1.0f));
 
             globalMin = glm::min(globalMin, transformed);
             globalMax = glm::max(globalMax, transformed);
@@ -110,10 +143,9 @@ Model::Model(std::string model_file, const char* vertexPath, const char* fragmen
     meshes = generate_mesh_from_file(model_file);
 
     if(shader.initialized) {
-        baseModel = glm::mat4(1.0f);
         model = glm::mat4(1.0f);
+        effect = glm::mat4(1.0f);
         valid = true;
-        factor = 1.0f;
 
         glm::vec3 min(FLT_MAX), max(-FLT_MAX);
 
@@ -127,40 +159,26 @@ Model::Model(std::string model_file, const char* vertexPath, const char* fragmen
     }
 };
 
-void Model::reverse() {
-    factor *= -1.0f;
+void Model::updateModelMatrix() {
+    model = transforms.getModelMatrix();
 }
 
-void Model::quakeTranslate(glm::vec3 offset) {
-    model = glm::translate(baseModel, factor * offset);
-}
-
-void Model::set_identity() {
-    model = glm::mat4(1.0f);
-    baseModel = model;
-}
-
-void Model::translate(glm::vec3 translate_vector, bool accumulate = true) {
-    if (accumulate) {
-        model = glm::translate(model, translate_vector);
-        baseModel = model;
-    } else {
-        model = glm::translate(baseModel, translate_vector);
-    }
+void Model::translate(glm::vec3 translate_vector) {
+    glm::mat4 t = glm::translate(glm::mat4(1.0f), translate_vector);
+    transforms.addTranslate(t);
+    updateModelMatrix();
 }
 
 void Model::scale(glm::vec3 scale_vector) {
-    model = glm::scale(model, scale_vector);
-    baseModel = model;
+    glm::mat4 t = glm::scale(glm::mat4(1.0f), scale_vector);
+    transforms.addScale(t);
+    updateModelMatrix();
 }
 
-void Model::rotate(GLfloat angle, glm::vec3 rotate_vector, bool accumulate = true) {
-    if(accumulate) {
-        model = glm::rotate(model, glm::radians(angle), rotate_vector);
-        baseModel = model;
-    } else {
-        model = glm::rotate(baseModel, glm::radians(angle), rotate_vector);
-    }
+void Model::rotate(GLfloat angle, glm::vec3 rotate_vector) {
+    glm::mat4 t = glm::rotate(glm::mat4(1.0f), glm::radians(angle), rotate_vector);
+    transforms.addRotate(t);
+    updateModelMatrix();
 }
 
 void Model::draw(
@@ -172,8 +190,10 @@ void Model::draw(
     bool showAABB = false
 ) {
     shader.use();
-    
-    shader.setMat4("model", glm::value_ptr(model));
+
+    glm::mat4 modelWithEffect = effect * model;
+
+    shader.setMat4("model", glm::value_ptr(modelWithEffect));
     shader.setMat4("view", glm::value_ptr(view));
     shader.setMat4("projection", glm::value_ptr(projection));
 
@@ -188,7 +208,7 @@ void Model::draw(
         mesh.draw(shader);
         if(showAABB) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            mesh.drawAABB(aabbShader, model, view, projection);
+            mesh.drawAABB(aabbShader, modelWithEffect, view, projection);
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
     }
