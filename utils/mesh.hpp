@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include <functional>
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.hpp"
 
@@ -36,9 +37,91 @@ struct Material {
 };
 
 struct AABB {
-    glm::vec3 max_corner;
     glm::vec3 min_corner;
+    glm::vec3 max_corner;
 };
+
+struct AABBNode {
+    AABB box;
+    AABBNode* left = nullptr;
+    AABBNode* right = nullptr;
+
+    std::vector<Vertex> vertices; // Só nas folhas
+    bool isLeaf() const { return left == nullptr && right == nullptr; }
+
+    AABB getTransformed(const glm::mat4& transform) const;
+
+    ~AABBNode() {
+        delete left;
+        delete right;
+    }
+};
+
+AABB AABBNode::getTransformed(const glm::mat4& transform) const {
+    glm::vec3 corners[8] = {
+        box.min_corner,
+        glm::vec3(box.min_corner.x, box.min_corner.y, box.max_corner.z),
+        glm::vec3(box.min_corner.x, box.max_corner.y, box.min_corner.z),
+        glm::vec3(box.min_corner.x, box.max_corner.y, box.max_corner.z),
+        glm::vec3(box.max_corner.x, box.min_corner.y, box.min_corner.z),
+        glm::vec3(box.max_corner.x, box.min_corner.y, box.max_corner.z),
+        glm::vec3(box.max_corner.x, box.max_corner.y, box.min_corner.z),
+        box.max_corner
+    };
+
+    glm::vec3 minT = glm::vec3(transform * glm::vec4(corners[0], 1.0f));
+    glm::vec3 maxT = minT;
+
+    for (int i = 1; i < 8; ++i) {
+        glm::vec3 t = glm::vec3(transform * glm::vec4(corners[i], 1.0f));
+        minT = glm::min(minT, t);
+        maxT = glm::max(maxT, t);
+    }
+
+    return AABB{minT, maxT};
+}
+
+AABBNode* buildAABBTree(std::vector<Vertex>& verts, int depth = 0) {
+    if (verts.empty()) return nullptr;
+
+    AABBNode* node = new AABBNode();
+
+    // Calcula o AABB atual
+    glm::vec3 min = verts[0].position;
+    glm::vec3 max = verts[0].position;
+    for (const auto& v : verts) {
+        min = glm::min(min, v.position);
+        max = glm::max(max, v.position);
+    }
+    node->box.min_corner = min;
+    node->box.max_corner = max;
+
+    // Critério de parada: poucos vértices
+    if (verts.size() <= 50 || depth > 10) {
+        node->vertices = verts;
+        return node;
+    }
+
+    // Eixo de divisão: maior eixo (x = 0/y = 1/z = 2)
+    glm::vec3 extent = max - min;
+    int axis = 0;
+    if (extent.y > extent.x) axis = 1;
+    if (extent.z > extent[axis]) axis = 2;
+
+    std::sort(verts.begin(), verts.end(), [axis](const Vertex& a, const Vertex& b) {
+        return a.position[axis] < b.position[axis];
+    });
+
+    // Divisão ao meio
+    size_t mid = verts.size() / 2;
+    std::vector<Vertex> leftVerts(verts.begin(), verts.begin() + mid);
+    std::vector<Vertex> rightVerts(verts.begin() + mid, verts.end());
+
+    node->left = buildAABBTree(leftVerts, depth + 1);
+    node->right = buildAABBTree(rightVerts, depth + 1);
+
+    return node;
+}
 
 // represent any drawable object
 struct Mesh {
@@ -51,7 +134,7 @@ struct Mesh {
 
     GLuint VAO, VBO, EBO;
 
-    AABB boundingBox;
+    AABBNode* boundingTree = nullptr;
 
     Mesh(std::string n, const std::vector<Vertex> &v, const std::vector<GLuint> &i, const Material& m, const std::string& baseDir);
     Mesh(const std::vector<Vertex> &v, const std::vector<GLuint> &i, const Material& m, const std::string& baseDir);
@@ -59,31 +142,79 @@ struct Mesh {
     void draw(const Shader &s) const;
     void setup_mesh();
     void load_texture(const char* path);
-    void destroy_mesh() const;
+    void destroy_mesh();
 
-    void computeAABB();          // <-- Adicionado
-    void drawAABB(const Shader& s, const glm::mat4& model, const glm::mat4& view, const glm::mat4& projection) const;
+/*     void drawAABB(const Shader& s, const glm::mat4& model, const glm::mat4& view, const glm::mat4& projection) const;
+ */
+    void drawBoundingTree(const Shader& shader, const glm::mat4& model, const glm::mat4& view, const glm::mat4& projection) const;
 };
 
-void Mesh::computeAABB() {
-    if (vertices.empty()) return;
+void drawAABB(const Shader& shader, const glm::mat4& model, const glm::mat4& view,
+              const glm::mat4& projection, const AABB& box) {
+    const glm::vec3& min = box.min_corner;
+    const glm::vec3& max = box.max_corner;
 
-    glm::vec3 min = vertices[0].position;
-    glm::vec3 max = vertices[0].position;
+    glm::vec3 corners[8] = {
+        {min.x, min.y, min.z}, {max.x, min.y, min.z},
+        {max.x, max.y, min.z}, {min.x, max.y, min.z},
+        {min.x, min.y, max.z}, {max.x, min.y, max.z},
+        {max.x, max.y, max.z}, {min.x, max.y, max.z}
+    };
 
-    for (const auto& vertex : vertices) {
-        min = glm::min(min, vertex.position);
-        max = glm::max(max, vertex.position);
-    }
+    GLuint indices[] = {
+        0,1, 1,2, 2,3, 3,0, 4,5, 5,6, 6,7, 7,4, 0,4, 1,5, 2,6, 3,7
+    };
 
-    boundingBox.min_corner = min;
-    boundingBox.max_corner = max;
+    GLuint vao, vbo, ebo;
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &vbo);
+    glGenBuffers(1, &ebo);
+
+    glBindVertexArray(vao);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(corners), corners, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    shader.use();
+    shader.setMat4("model", glm::value_ptr(model));
+    shader.setMat4("view", glm::value_ptr(view));
+    shader.setMat4("projection", glm::value_ptr(projection));
+    shader.setVec3("color", glm::vec3(1.0f, 0.0f, 0.0f)); // vermelho
+
+    glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
+
+    glBindVertexArray(0);
+    glDeleteBuffers(1, &vbo);
+    glDeleteBuffers(1, &ebo);
+    glDeleteVertexArrays(1, &vao);
 }
 
-void Mesh::drawAABB(const Shader& s, const glm::mat4& model, const glm::mat4& view, const glm::mat4& projection) const {
-    // Canto mínimo e máximo da AABB no espaço do objeto
-    const glm::vec3& min = boundingBox.min_corner;
-    const glm::vec3& max = boundingBox.max_corner;
+void Mesh::drawBoundingTree(const Shader& shader, const glm::mat4& model, const glm::mat4& view, const glm::mat4& projection) const {
+    std::function<void(const AABBNode*)> drawRecursive = [&](const AABBNode* node) {
+        if (!node) return;
+
+        // Desenhar o AABB desse nó
+        if (node->isLeaf())
+            drawAABB(shader, model * glm::mat4(1.0f), view, projection, node->box);
+
+        // Recursivamente desenhar filhos
+        drawRecursive(node->left);
+        drawRecursive(node->right);
+    };
+
+    drawRecursive(boundingTree);
+}
+
+/* void Mesh::drawAABB(const Shader& s, const glm::mat4& model, const glm::mat4& view, const glm::mat4& projection) const {
+    // Canto mínimo e máximo da AABB no espaço do objeto    
+    const glm::vec3& min = boundingTree->box.min_corner;
+    const glm::vec3& max = boundingTree->box.max_corner;
 
     // 8 vértices do cubo AABB
     glm::vec3 corners[8] = {
@@ -139,7 +270,7 @@ void Mesh::drawAABB(const Shader& s, const glm::mat4& model, const glm::mat4& vi
     glDeleteBuffers(1, &vbo);
     glDeleteBuffers(1, &ebo);
     glDeleteVertexArrays(1, &vao);
-}
+} */
 
 Mesh::Mesh(std::string n, const std::vector<Vertex> &v, const std::vector<GLuint> &i, const Material& m, const std::string& baseDir): Mesh(v, i, m, baseDir) {
     name = n;
@@ -171,7 +302,7 @@ Mesh::Mesh(const std::vector<Vertex> &v, const std::vector<GLuint> &i, const Mat
     }
     
     setup_mesh();
-    computeAABB();
+    boundingTree = buildAABBTree(vertices);
 }
 
 void Mesh::draw(const Shader &s) const {
@@ -291,7 +422,7 @@ void Mesh::load_texture(const char* path) {
     }
 }
 
-void Mesh::destroy_mesh() const {
+void Mesh::destroy_mesh() {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &EBO);
@@ -299,6 +430,9 @@ void Mesh::destroy_mesh() const {
     for (GLuint tex : textures) {
         glDeleteTextures(1, &tex);
     }
+
+    delete boundingTree;
+    boundingTree = nullptr;
 }
 
 #endif

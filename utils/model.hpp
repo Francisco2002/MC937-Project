@@ -24,10 +24,13 @@ struct Light {
 
 struct Object {
     glm::vec3 position = glm::vec3(0.0f);
-        glm::vec3 displacedPosition = glm::vec3(0.0f);// posição suavizada com inércia
+    glm::vec3 displacedPosition = glm::vec3(0.0f);// posição suavizada com inércia
     glm::vec3 velocity = glm::vec3(0.0f);
     glm::vec3 size = glm::vec3(0.0f);
     GLfloat mass = 0; 
+    
+    glm::vec3 angularVelocity = glm::vec3(0.0f);  // Velocidade angular (torque)
+    GLfloat angularDamping = 0.99f;  // Damping para as rotações (ajuste conforme necessário)
 
     void incrementVelocity(glm::vec3 v);
 };
@@ -53,8 +56,10 @@ struct Transforms {
 struct Model {
     Object object;
     Shader shader;
+    Shader aabbShader;
     std::vector<Mesh> meshes;
-    
+    AABB modelAABB;
+
     glm::mat4 model;
 
     // non-cumulative effect matrix
@@ -77,6 +82,8 @@ struct Model {
     void clearEffect();
     void updateModelMatrix();
 
+    glm::vec3 getPosition() const;
+
     void draw(
         glm::mat4 &view,
         glm::mat4 &projection,
@@ -86,6 +93,7 @@ struct Model {
         bool showAABB
     );
 
+    void setInitialGlobalAABB();
     AABB getGlobalAABB();
     void destroy();
 };
@@ -108,47 +116,59 @@ void Model::clearEffect() {
     effect = glm::mat4(1.0f);
 }
 
-AABB Model::getGlobalAABB() {
-    if (meshes.empty()) return AABB{glm::vec3(0.0f), glm::vec3(0.0f)};
+glm::vec3 Model::getPosition() const {
+    return glm::vec3(model[3]); // Pega a coluna da translação
+}
+
+void Model::setInitialGlobalAABB() {
+    if (meshes.empty()) {
+        modelAABB.min_corner = glm::vec3(0.0f);
+        modelAABB.max_corner = glm::vec3(0.0f);
+    }
 
     glm::vec3 globalMin(FLT_MAX);
     glm::vec3 globalMax(-FLT_MAX);
 
-    for (const Mesh& mesh : meshes) {
-        AABB localBox = mesh.boundingBox;
+    auto transformAABBNode = [&](const AABBNode* node, auto&& self_ref) -> void {
+        if (!node) return;
 
-        // 8 cantos da AABB local
+        const glm::vec3& min = node->box.min_corner;
+        const glm::vec3& max = node->box.max_corner;
+
         glm::vec3 corners[8] = {
-            {localBox.min_corner.x, localBox.min_corner.y, localBox.min_corner.z},
-            {localBox.max_corner.x, localBox.min_corner.y, localBox.min_corner.z},
-            {localBox.max_corner.x, localBox.max_corner.y, localBox.min_corner.z},
-            {localBox.min_corner.x, localBox.max_corner.y, localBox.min_corner.z},
-            {localBox.min_corner.x, localBox.min_corner.y, localBox.max_corner.z},
-            {localBox.max_corner.x, localBox.min_corner.y, localBox.max_corner.z},
-            {localBox.max_corner.x, localBox.max_corner.y, localBox.max_corner.z},
-            {localBox.min_corner.x, localBox.max_corner.y, localBox.max_corner.z},
+            {min.x, min.y, min.z}, {max.x, min.y, min.z},
+            {max.x, max.y, min.z}, {min.x, max.y, min.z},
+            {min.x, min.y, max.z}, {max.x, min.y, max.z},
+            {max.x, max.y, max.z}, {min.x, max.y, max.z}
         };
 
-        // Transformar cantos pela matriz model
         for (const glm::vec3& corner : corners) {
-            glm::vec3 transformed = glm::vec3(effect * model * glm::vec4(corner, 1.0f));
-
-            globalMin = glm::min(globalMin, transformed);
-            globalMax = glm::max(globalMax, transformed);
+            globalMin = glm::min(globalMin, corner);
+            globalMax = glm::max(globalMax, corner);
         }
+
+        self_ref(node->left, self_ref);
+        self_ref(node->right, self_ref);
+    };
+
+    for (const auto& mesh : meshes) {
+        transformAABBNode(mesh.boundingTree, transformAABBNode);
     }
 
-    AABB aabb;
-    aabb.min_corner = globalMin;
-    aabb.max_corner = globalMax;
-
-    object.position = (globalMax + globalMin) * 0.5f;
-    object.size = globalMax - globalMin;
-
-    return aabb;
+    modelAABB.min_corner = globalMin;
+    modelAABB.max_corner = globalMax;
 }
 
-Model::Model(std::string model_file, const char* vertexPath, const char* fragmentPath): shader(vertexPath, fragmentPath) {
+AABB Model::getGlobalAABB() {
+    glm::mat4 transform = effect * model;
+     
+    glm::vec3 min_corner = glm::vec3(transform * glm::vec4(modelAABB.min_corner, 1.0f));
+    glm::vec3 max_corner = glm::vec3(transform * glm::vec4(modelAABB.max_corner, 1.0f));
+
+    return AABB{min_corner, max_corner};
+}
+
+Model::Model(std::string model_file, const char* vertexPath, const char* fragmentPath): shader(vertexPath, fragmentPath), aabbShader("shaders/aabb.vs.shader", "shaders/aabb.fs.shader") {
     meshes = generate_mesh_from_file(model_file);
 
     if(shader.initialized) {
@@ -156,8 +176,7 @@ Model::Model(std::string model_file, const char* vertexPath, const char* fragmen
         effect = glm::mat4(1.0f);
         valid = true;
 
-        getGlobalAABB();
-        object.displacedPosition = object.position;
+        setInitialGlobalAABB();
     }
 };
 
@@ -203,23 +222,22 @@ void Model::draw(
     shader.setVec3("lightColor", lightColor);
 
     shader.setVec3("viewPos", viewPosition);
-
-    Shader aabbShader("shaders/aabb.vs.shader", "shaders/aabb.fs.shader");
     
     for (const auto& mesh: meshes) {
         mesh.draw(shader);
         if(showAABB) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            mesh.drawAABB(aabbShader, modelWithEffect, view, projection);
+            mesh.drawBoundingTree(shader, model, view, projection);
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
     }
 }
 
 void Model::destroy() {
-    for (const auto& mesh: meshes)
+    for (auto& mesh: meshes)
         mesh.destroy_mesh();
     glDeleteProgram(shader.ID);
+    glDeleteProgram(aabbShader.ID);
 }
 
 #endif
