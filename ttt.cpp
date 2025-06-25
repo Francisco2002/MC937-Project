@@ -110,33 +110,40 @@ int main(int argc, char* argv[]) {
     AABB scene = scenario.getGlobalAABB();
 
     // ------------------ MESA ------------------
+    m1.setModelMass(30.0f);
     m1.translate(glm::vec3(-30.0f, -40.0f, -35.0f));
     m1.scale(glm::vec3(20.0f));
 
     // ------------------ ABAJUR ------------------
+    m2.setModelMass(3.0f);
     m2.translate(glm::vec3(-38.0f, -23.0f, -35.0f));
     m2.scale(glm::vec3(7.0f));
 
     // ------------------ LIVRO 1 ------------------
+    m3.setModelMass(0.3f);
     m3.translate(glm::vec3(-20.0f, -27.5f, -34.0f));
     m3.rotate(90.0f, glm::vec3(1.0f, 0.0f, 0.0));
     m3.scale(glm::vec3(5.0f));
 
     // ------------------ LIVRO 2 (empilhado) ------------------
+    m4.setModelMass(0.5f);
     m4.translate(glm::vec3(-20.0f, -25.0f, -30.0f));
     m4.rotate(30.0f, glm::vec3(0.0f, 1.0f, 0.0));
     m4.scale(glm::vec3(5.0f));
 
     // ------------------ CAMA ------------------
+    m5.setModelMass(45.0f);
     m5.translate(glm::vec3(32.0f, -35.0f, -20.0f));
     m5.scale(glm::vec3(30.0f, 32.0f, 18.0f));
 
     // ------------------ CRIADO MUDO ------------------
+    m6.setModelMass(15.6);
     m6.translate(glm::vec3(-38.0f, -40.0f, 30.0f));
     m6.rotate(90.0f, glm::vec3(0.0f, 1.0f, 0.0f));
     m6.scale(glm::vec3(10.0f));
 
     // ------------------ LÂMPADA ------------------
+    m7.setModelMass(0.15);
     m7.translate(glm::vec3(0.0f, 35.0f, 0.0f));
     m7.scale(glm::vec3(10.0f));
 
@@ -176,9 +183,15 @@ int main(int argc, char* argv[]) {
 
         scenario.draw(view, projection, ambient.position, ambient.color, camera.Position);
 
-        glm::mat4 modelSala = scenario.transforms.rotate;
+        glm::mat4 rotationScene = scenario.transforms.rotate;
+        glm::mat4 invertRotationScene = glm::transpose(rotationScene);
 
-        AABB s = scenario.getGlobalAABB();
+        glm::vec3 gravityLocal = glm::vec3(invertRotationScene * glm::vec4(gravity, 0.0f));
+
+        AABB sceneAABB = scenario.getGlobalAABB();
+
+        glm::vec3 sceneMinLocal = glm::vec3(invertRotationScene * glm::vec4(sceneAABB.min_corner, 1.0f));
+        glm::vec3 sceneMaxLocal = glm::vec3(invertRotationScene * glm::vec4(sceneAABB.max_corner, 1.0f));
 
         float yChao = -40.0f;
 
@@ -187,19 +200,28 @@ int main(int argc, char* argv[]) {
             Object& obj = model.object;
 
             if (obj.mass > 0.0f) {
-                glm::vec3 acceleration = gravity;
+                glm::vec3 acceleration = gravityLocal;
 
                 obj.velocity += acceleration * deltaTime;
                 obj.displacedPosition += obj.velocity * deltaTime;
 
-                if (obj.displacedPosition.y < yChao) {
-                    obj.displacedPosition.y = yChao;
+                if (obj.displacedPosition.y < sceneMinLocal.y + 0.01f) {
+                    obj.displacedPosition.y = sceneMinLocal.y;
                     obj.velocity.y = 0.0f;
                 }
+
+                if (obj.displacedPosition.x <= sceneMinLocal.x + 0.01f || obj.displacedPosition.x >= sceneMaxLocal.x - 0.01f)
+                    obj.velocity.x = 0.0f;
+                if (obj.displacedPosition.z <= sceneMinLocal.z + 0.01f || obj.displacedPosition.z >= sceneMaxLocal.z - 0.01f)
+                    obj.velocity.z = 0.0f;
+
+                obj.displacedPosition = glm::clamp(obj.displacedPosition, sceneMinLocal, sceneMaxLocal);
             }
 
+            glm::vec4 posWorld = rotationScene * glm::vec4(obj.displacedPosition, 1.0f);
+
             model.clearEffect();
-            model.applyEffect(TRANSLATE, obj.displacedPosition);
+            model.applyEffect(TRANSLATE, glm::vec3(posWorld));
 
             model.draw(view, projection, ambient.position, ambient.color, camera.Position, true);
         }

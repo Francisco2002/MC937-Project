@@ -172,11 +172,11 @@ int main(int argc, char* argv[]) {
     m6.scale(glm::vec3(10.0f));
 
     // ------------------ LÂMPADA ------------------
-    m7.setModelMass(0.15);
+    /* m7.setModelMass(0.15);
     m7.translate(glm::vec3(0.0f, 38.0f, 0.0f));
     m = m7.getGlobalAABB();
     // m7.translate(translate_to_inside_room(scene, m));
-    m7.scale(glm::vec3(10.0f));
+    m7.scale(glm::vec3(10.0f)); */
 
     models.push_back(m1);
     models.push_back(m2);
@@ -184,7 +184,7 @@ int main(int argc, char* argv[]) {
     models.push_back(m4);
     models.push_back(m5);
     models.push_back(m6);
-    models.push_back(m7);
+    // models.push_back(m7);
 
     glm::mat4 view;
 
@@ -281,41 +281,6 @@ int main(int argc, char* argv[]) {
 
                     model.clearEffect();
                     model.applyEffect(TRANSLATE, model.object.displacedPosition);
-                }
-            }
-
-            m_i = model.getGlobalAABB();
-
-            for (size_t j = i + 1; j < models.size(); ++j) {
-                Model& b = models[j];
-                AABB b_box = b.getGlobalAABB();
-
-                if (checkAABBCollision(m_i, b_box)) {
-                    // Vetor mínimo para separação
-                    glm::vec3 penetration = getMinimumTranslationVector(m_i, b_box);
-
-                    // Aplica correção dividida entre os dois objetos proporcional à massa
-                    float totalMass = model.object.mass + b.object.mass;
-
-                    glm::vec3 correctionA = -(penetration * (b.object.mass / totalMass));
-                    glm::vec3 correctionB = (penetration * (model.object.mass / totalMass));
-
-                    model.object.displacedPosition += correctionA;
-                    b.object.displacedPosition += correctionB;
-
-                    // Rebote simples: troca parte da velocidade (elástico)
-                    glm::vec3 relativeVelocity = b.object.velocity - model.object.velocity;
-                    glm::vec3 impulse = relativeVelocity * 0.5f; // 0.5 = coeficiente elástico simplificado
-
-                    model.object.velocity += impulse * (b.object.mass / totalMass);
-                    b.object.velocity -= impulse * (model.object.mass / totalMass);
-
-                    // Reaplica transformações
-                    model.clearEffect();
-                    model.applyEffect(TRANSLATE, model.object.displacedPosition);
-
-                    b.clearEffect();
-                    b.applyEffect(TRANSLATE, b.object.displacedPosition);
                 }
             }
 
